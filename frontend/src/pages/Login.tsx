@@ -49,7 +49,9 @@ const Login = () => {
       }
       navigate('/home');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      const errorMsg = err.response?.data?.error || 'Login failed';
+      setError(errorMsg);
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }

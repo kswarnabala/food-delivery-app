@@ -22,11 +22,25 @@ export const authAPI = {
 };
 
 export const foodsAPI = {
-  getAll: (category?: string) => api.get('/foods', { params: { category } }),
+  getAll: (category?: string) => api.get('/foods', { params: { category, t: Date.now() } }),
   getById: (id: string) => api.get(`/foods/${id}`),
   create: (data: any) => api.post('/foods', data),
   update: (id: number, data: any) => api.put(`/foods/${id}`, data),
   delete: (id: number) => api.delete(`/foods/${id}`),
+};
+
+export const reviewsAPI = {
+  getByFood: (foodId: number) => api.get(`/foods/${foodId}/reviews`),
+  create: (foodId: number, data: { rating: number; comment: string }) => api.post(`/foods/${foodId}/reviews`, data),
+};
+
+export const chatAPI = {
+  getMessages: (userId?: number) => api.get('/chat/messages', { params: userId ? { userId } : {} }),
+  sendMessage: (message: string, userId?: number) => api.post('/chat/messages', { message, userId }),
+  editMessage: (id: number, message: string) => api.put(`/chat/messages/${id}`, { message }),
+  deleteMessage: (id: number) => api.delete(`/chat/messages/${id}`),
+  availability: () => api.get('/chat/availability'),
+  updateAvailability: (data: any) => api.put('/chat/availability', data)
 };
 
 export const ordersAPI = {
@@ -34,6 +48,7 @@ export const ordersAPI = {
   getAll: () => api.get('/orders'),
   getAllAdmin: () => api.get('/orders/admin/all'),
   getById: (id: number) => api.get(`/orders/${id}`),
+  updateStatus: (id: number, status: string) => api.put(`/orders/${id}/status`, { status }),
 };
 
 export const paymentsAPI = {

@@ -2,10 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDB } from './config/database';
+import { hashPassword } from './config/auth';
 import authRoutes from './routes/auth';
 import foodRoutes from './routes/foods';
 import orderRoutes from './routes/orders';
 import paymentRoutes from './routes/payments';
+import chatRoutes from './routes/chat';
 
 dotenv.config();
 
@@ -21,9 +23,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/foods', foodRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
-
-import { hashPassword } from './config/auth';
-
+  app.use('/api/chat', chatRoutes);
 // Ensure all database tables exist on startup
 async function ensureTables(db: any) {
   const idType = process.env.DB_TYPE === 'sqlite' ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'SERIAL PRIMARY KEY';
@@ -83,6 +83,23 @@ async function ensureTables(db: any) {
     order_id INTEGER NOT NULL REFERENCES orders(id),
     food_id INTEGER NOT NULL REFERENCES foods(id),
     quantity INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS food_reviews (
+    id ${idType},
+    food_id INTEGER NOT NULL REFERENCES foods(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    rating INTEGER NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS chat_messages (
+    id ${idType},
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    is_admin BOOLEAN NOT NULL,
+    message TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`);
 

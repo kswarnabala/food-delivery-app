@@ -2,6 +2,7 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { foodsAPI, ordersAPI } from '../utils/api';
 import { useAuth } from '../context/AppContext';
+import ChatBot from '../components/ChatBot';
 
 interface Food {
     id: number;
@@ -66,6 +67,15 @@ const AdminDashboard = () => {
             setOrders(response.data || []);
         } catch (error) {
             console.error('Failed to fetch orders');
+        }
+    };
+
+    const handleUpdateOrderStatus = async (orderId: number, status: string) => {
+        try {
+            await ordersAPI.updateStatus(orderId, status);
+            fetchOrders();
+        } catch (error) {
+            alert('Failed to update order status.');
         }
     };
 
@@ -371,9 +381,17 @@ const AdminDashboard = () => {
                                                 <td>{new Date(order.delivery_date).toLocaleDateString()}</td>
                                                 <td>{order.delivery_time || '-'}</td>
                                                 <td>
-                                                    <span className="badge bg-light text-dark rounded-pill fw-600 px-3">
-                                                        {order.status}
-                                                    </span>
+                                                    <select
+                                                        className={`form-select form-select-sm fw-600 rounded-pill px-3 py-1 shadow-sm text-white ${order.status === 'confirmed' ? 'bg-success' : order.status === 'rejected' ? 'bg-danger' : order.status === 'waiting' ? 'bg-warning text-dark' : 'bg-secondary'}`}
+                                                        style={{ width: '120px', cursor: 'pointer', appearance: 'none', textAlign: 'center' }}
+                                                        value={order.status}
+                                                        onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                                                    >
+                                                        <option value="pending" className="bg-white text-dark">Pending</option>
+                                                        <option value="waiting" className="bg-white text-dark">Wait</option>
+                                                        <option value="confirmed" className="bg-white text-dark">Confirm</option>
+                                                        <option value="rejected" className="bg-white text-dark">Reject</option>
+                                                    </select>
                                                 </td>
                                                 <td className="fw-700 text-primary">₹{order.total_amount}</td>
                                                 <td className="text-end pe-3 small text-muted">
@@ -387,6 +405,9 @@ const AdminDashboard = () => {
                         )}
                     </div>
                 )}
+            </div>
+            <div className="mt-4">
+                <ChatBot isAdmin />
             </div>
 
             <style>{`

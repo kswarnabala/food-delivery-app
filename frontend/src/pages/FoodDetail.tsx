@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { foodsAPI } from '../utils/api';
-import { useCart } from '../context/AppContext';
+import { foodsAPI, reviewsAPI } from '../utils/api';
+import { useCart, useAuth } from '../context/AppContext';
 
 interface Food {
   id: number;
@@ -12,13 +12,29 @@ interface Food {
   image_url: string;
 }
 
+interface Review {
+  id: number;
+  user_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
 const FoodDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { user } = useAuth();
   const [food, setFood] = useState<Food | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [avgRating, setAvgRating] = useState<number>(0);
+  const [reviewCount, setReviewCount] = useState<number>(0);
+  const [rating, setRating] = useState<number>(5);
+  const [comment, setComment] = useState<string>('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string>('');
 
   const getFoodImage = (f: Food) => {
     if (f.image_url) return f.image_url;
@@ -43,13 +59,25 @@ const FoodDetail: React.FC = () => {
     }
   };
 
+  const fetchReviews = async (foodId: number) => {
+    try {
+      const resp = await reviewsAPI.getByFood(foodId);
+      setReviews(resp.data.reviews || []);
+      setAvgRating(resp.data.avgRating || 0);
+      setReviewCount(resp.data.totalRatings || 0);
+    } catch (error) {
+      console.error('Failed to load reviews:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchFood = async () => {
       if (!id) return;
       try {
         setLoading(true);
-        const response = await foodsAPI.getById(parseInt(id, 10));
+        const response = await foodsAPI.getById(id);
         setFood(response.data);
+        await fetchReviews(parseInt(id, 10));
       } catch (error) {
         console.error('Failed to fetch food:', error);
       } finally {
@@ -59,6 +87,32 @@ const FoodDetail: React.FC = () => {
 
     fetchFood();
   }, [id]);
+
+  const handleReviewSubmit = async () => {
+    if (!food) return;
+    if (!user) {
+      setReviewError('Please log in to submit a review.');
+      return;
+    }
+    if (!comment.trim()) {
+      setReviewError('Please write a comment.');
+      return;
+    }
+
+    try {
+      setReviewLoading(true);
+      setReviewError('');
+      await reviewsAPI.create(food.id, { rating, comment });
+      setComment('');
+      setRating(5);
+      await fetchReviews(food.id);
+    } catch (error) {
+      setReviewError('Failed to submit review.');
+      console.error(error);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
   const handleAddToCart = () => {
     if (!food) return;
@@ -128,7 +182,7 @@ const FoodDetail: React.FC = () => {
                 <div>
                   <span className="text-muted small d-block">Rating</span>
                   <span className="fw-700">
-                    <i className="bi bi-star-fill text-warning me-1" />4.5
+                    <i className="bi bi-star-fill text-warning me-1" />{avgRating || 0} ({reviewCount})
                   </span>
                 </div>
               </div>
@@ -162,6 +216,67 @@ const FoodDetail: React.FC = () => {
                 Add to Cart
               </button>
             </div>
+          </div>
+        </div>
+
+        <div className="premium-card bg-white p-4 mt-4 animate-up">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h3 className="fw-800 mb-1">Customer Reviews</h3>
+              <p className="text-muted small">Share your experience and see other ratings.</p>
+            </div>
+            <span className="badge bg-warning text-dark rounded-pill">Avg {avgRating || 0}</span>
+          </div>
+
+          <div className="mb-3">
+            <div className="d-flex gap-2 align-items-center mb-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  className={`btn btn-sm ${star <= rating ? 'btn-warning text-dark' : 'btn-outline-secondary'}`}
+                  onClick={() => setRating(star)}
+                  type="button"
+                >
+                  ★
+                </button>
+              ))}
+              <span className="text-muted small">{rating}/5</span>
+            </div>
+            <textarea
+              className="form-control mb-2"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Write your review..."
+              rows={3}
+            />
+            {reviewError && <div className="text-danger small mb-2">{reviewError}</div>}
+            <button
+              onClick={handleReviewSubmit}
+              disabled={reviewLoading}
+              className="btn btn-primary btn-sm"
+              type="button"
+            >
+              {reviewLoading ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            {reviews.length === 0 ? (
+              <div className="text-muted small">No reviews yet. Be the first to rate.</div>
+            ) : (
+              <div className="d-flex flex-column gap-3">
+                {reviews.map((review) => (
+                  <div key={review.id} className="border rounded-3 p-3">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <strong>{review.user_name}</strong>
+                      <span className="badge bg-warning text-dark">{review.rating} ★</span>
+                    </div>
+                    <p className="mb-1 small text-muted">{new Date(review.created_at).toLocaleString()}</p>
+                    <p className="mb-0">{review.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

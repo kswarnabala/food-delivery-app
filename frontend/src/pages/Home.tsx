@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { foodsAPI } from '../utils/api';
 import { useCart, useAuth } from '../context/AppContext';
 import { format } from 'date-fns';
+import ChatBot from '../components/ChatBot';
 
 interface Food {
   id: number;
@@ -11,6 +12,8 @@ interface Food {
   description: string;
   price: number;
   image_url: string;
+  avgRating?: number;
+  reviewCount?: number;
 }
 
 const Home = () => {
@@ -227,8 +230,21 @@ const Home = () => {
                           }}
                         />
                         <div className="position-absolute bottom-0 start-0 w-100 p-3 bg-gradient-dark">
-                          <span className="badge bg-white text-dark rounded-pill px-3 py-2 fw-700 shadow-sm">
-                            <i className="bi bi-star-fill text-warning me-1"></i> 4.5
+                          <span className="badge bg-white text-dark rounded-pill px-3 py-2 fw-700 shadow-sm d-inline-flex align-items-center">
+                            <span className="d-flex text-warning me-1">
+                              {Number(food.avgRating) > 0 ? (
+                                [1, 2, 3, 4, 5].map((star) => (
+                                  <i
+                                    key={star}
+                                    className={`bi bi-star-fill ${star <= Math.round(Number(food.avgRating) || 0) ? 'text-warning' : 'text-secondary'} small`}
+                                    style={{ fontSize: '0.7rem' }}
+                                  ></i>
+                                ))
+                              ) : (
+                                <i className="bi bi-star text-secondary" style={{ fontSize: '0.7rem' }}></i>
+                              )}
+                            </span>
+                            {Number(food.avgRating) > 0 ? Number(food.avgRating).toFixed(1) : 'New'}
                           </span>
                         </div>
                       </div>
@@ -237,7 +253,21 @@ const Home = () => {
                     <div className="p-4 flex-grow-1 d-flex flex-column">
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <h5 className="fw-700 mb-0 text-truncate">{food.name}</h5>
-                        <div className="small text-muted"><i className="bi bi-star-fill text-warning me-1"></i>4.5</div>
+                        <div className="small text-muted d-flex align-items-center">
+                          <div className="d-flex text-warning me-2">
+                            {Number(food.avgRating) > 0 ? (
+                              [1, 2, 3, 4, 5].map((star) => (
+                                <i
+                                  key={star}
+                                  className={`bi bi-star-fill ${star <= Math.round(Number(food.avgRating) || 0) ? 'text-warning' : 'text-secondary'} small`}
+                                ></i>
+                              ))
+                            ) : (
+                              <span className="badge border border-secondary text-secondary">New</span>
+                            )}
+                          </div>
+                          {Number(food.reviewCount) > 0 && <span>({food.reviewCount})</span>}
+                        </div>
                       </div>
                       <p className="small text-muted mb-4 line-clamp-2">{food.description || 'Appetizing flavor prepared fresh for you.'}</p>
 
@@ -272,6 +302,7 @@ const Home = () => {
           </div>
         )}
       </div>
+      <ChatBot />
 
       <style>{`
         .fw-800 { font-weight: 800; }

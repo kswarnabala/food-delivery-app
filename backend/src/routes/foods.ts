@@ -9,17 +9,27 @@ const pool = getPool();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { category } = req.query;
-    let query = 'SELECT * FROM foods WHERE available = true';
+    let query = `
+      SELECT f.*, 
+             ROUND(COALESCE(AVG(r.rating), 0), 1) as "avgRating",
+             COUNT(r.rating) as "reviewCount"
+      FROM foods f
+      LEFT JOIN food_reviews r ON f.id = r.food_id
+      WHERE f.available = true
+    `;
     const params: any[] = [];
 
     if (category) {
-      query += ' AND category = ?';
+      query += ' AND f.category = ?';
       params.push(category);
     }
+
+    query += ' GROUP BY f.id';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
+    console.error('Foods GET error:', error);
     res.status(500).json({ error: 'Failed to fetch foods' });
   }
 });
@@ -75,6 +85,50 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch food' });
+  }
+});
+
+// Add review for a food by customer
+router.post('/:id/reviews', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const foodId = parseInt(req.params.id, 10);
+    const { rating, comment } = req.body;
+    const userId = req.user?.id;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+    }
+    if (!userId) {
+      return res.status(401).json({ error: 'Invalid user.' });
+    }
+
+    const foodCheck = await pool.query('SELECT * FROM foods WHERE id = ?', [foodId]);
+    if (foodCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Food not found.' });
+    }
+
+    await pool.query('INSERT INTO food_reviews (food_id, user_id, rating, comment) VALUES (?, ?, ?, ?)', [foodId, userId, rating, comment || null]);
+    res.status(201).json({ message: 'Review added successfully.' });
+  } catch (error) {
+    console.error('Add review error:', error);
+    res.status(500).json({ error: 'Failed to add review.' });
+  }
+});
+
+// Get reviews for a food item and average rating
+router.get('/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const foodId = parseInt(req.params.id, 10);
+    const reviews = await pool.query('SELECT r.*, u.name as user_name FROM food_reviews r JOIN users u ON r.user_id = u.id WHERE r.food_id = ? ORDER BY r.created_at DESC', [foodId]);
+    const stats = await pool.query('SELECT COUNT(*) as total, AVG(rating) as avgRating FROM food_reviews WHERE food_id = ?', [foodId]);
+
+    const total = stats.rows[0]?.total || 0;
+    const avgRating = parseFloat((stats.rows[0]?.avgRating || 0).toFixed(1));
+
+    res.json({ reviews: reviews.rows, totalRatings: total, avgRating });
+  } catch (error) {
+    console.error('Get reviews error:', error);
+    res.status(500).json({ error: 'Failed to fetch reviews.' });
   }
 });
 

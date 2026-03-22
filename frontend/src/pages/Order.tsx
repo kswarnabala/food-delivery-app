@@ -25,6 +25,7 @@ const Order = () => {
     phone: storedDeliveryInfo?.phone || '',
     address: storedDeliveryInfo?.address || '',
     saveInfo: !!storedDeliveryInfo,
+    preferredTime: storedDeliveryInfo?.preferredTime || '',
     description: storedDeliveryInfo?.description || [],
   });
 

@@ -97,4 +97,43 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// Update order status (Admin only)
+router.put('/:id/status', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'confirmed', 'waiting', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const { id } = req.params;
+
+    // Fetch the specific user_id of the order before updating
+    const orderCheck = await pool.query('SELECT user_id FROM orders WHERE id = $1', [id]);
+    if (!orderCheck.rows || orderCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const customerId = orderCheck.rows[0].user_id;
+
+    await pool.query(
+      'UPDATE orders SET status = $1 WHERE id = $2',
+      [status, id]
+    );
+
+    // Provide seamless Chatbot Notification!
+    const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+    const automatedMessage = `🔔 Order Update: Your Order #${id} has been ${capitalizedStatus}.`;
+
+    await pool.query(
+      'INSERT INTO chat_messages (user_id, is_admin, message) VALUES ($1, $2, $3)',
+      [customerId, true, automatedMessage]
+    );
+
+    res.json({ success: true, message: 'Status updated and customer notified' });
+  } catch (error) {
+    console.error('Failed to update order status:', error);
+    res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
 export default router;
